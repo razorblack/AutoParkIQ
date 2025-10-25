@@ -1,0 +1,116 @@
+@startuml AutoParkIQ_Complete_System
+
+!theme plain
+title AutoParkIQ - Complete System Architecture
+
+package "Presentation Layer" {
+    component [ParkingController] as PC
+    component [PaymentController] as PayC
+    component [TestController] as TC
+    
+    component [VehicleEntryRequest] as VER
+    component [PaymentRequest] as PR
+    component [ParkingTicketResponse] as PTR
+    component [ApiResponse] as AR
+    
+    component [GlobalExceptionHandler] as GEH
+    component [ParkingException] as PE
+    component [ResourceNotFoundException] as RNFE
+}
+
+package "Business Layer" {
+    component [VehicleService] as VS
+    component [ParkingService] as PS
+    component [PaymentService] as PayS
+    
+    component [NearestSpotAllocationStrategy] as NSAS
+    component [OptimalSpotAllocationStrategy] as OSAS
+    component [RandomSpotAllocationStrategy] as RSAS
+    component [FloorBasedAllocationStrategy] as FBAS
+}
+
+package "Data Access Layer" {
+    component [VehicleRepository] as VR
+    component [ParkingLotRepository] as PLR
+    component [ParkingFloorRepository] as PFR
+    component [ParkingSpotRepository] as PSR
+    component [ParkingTicketRepository] as PTkR
+    component [PaymentRepository] as PayR
+}
+
+package "Domain Layer" {
+    component [Vehicle] as V
+    component [ParkingLot] as PL
+    component [ParkingFloor] as PF
+    component [ParkingSpot] as PSp
+    component [ParkingTicket] as PT
+    component [Payment] as Pay
+    
+    component [VehicleType] as VT
+    component [SpotType] as ST
+    component [SpotStatus] as SS
+}
+
+package "Infrastructure Layer" {
+    database "MySQL Database" as DB
+    component [JpaConfig] as JPA
+    component [OpenApiConfig] as OAC
+    component [AppConstants] as AC
+    component [Spring Actuator] as SA
+    component [Prometheus Metrics] as PM
+}
+
+' Layer relationships
+PC --> PS : uses
+PayC --> PayS : uses
+PS --> VR : uses
+PS --> PSR : uses
+PS --> PTkR : uses
+PayS --> PayR : uses
+
+PS --> NSAS : uses
+PS --> OSAS : uses
+PS --> RSAS : uses
+PS --> FBAS : uses
+
+VR --> V : manages
+PLR --> PL : manages
+PFR --> PF : manages
+PSR --> PSp : manages
+PTkR --> PT : manages
+PayR --> Pay : manages
+
+VR --> DB : persists
+PLR --> DB : persists
+PFR --> DB : persists
+PSR --> DB : persists
+PTkR --> DB : persists
+PayR --> DB : persists
+
+PC ..> VER : uses
+PC ..> PTR : returns
+PayC ..> PR : uses
+PC ..> AR : returns
+PayC ..> AR : returns
+
+GEH --> PE : handles
+GEH --> RNFE : handles
+GEH --> AR : creates
+
+JPA ..> VR : configures
+JPA ..> PLR : configures
+OAC ..> PC : documents
+OAC ..> PayC : documents
+
+SA ..> PS : monitors
+PM ..> PS : monitors
+
+note top of PC : REST endpoints for\nparking operations
+note top of PS : Business logic with\nstrategy patterns
+note top of VR : Data access\nabstraction layer
+note top of V : Core domain\nobjects
+note bottom of DB : MySQL 8.0\nwith optimizations
+
+@enduml
+
+@enduml

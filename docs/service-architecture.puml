@@ -1,0 +1,146 @@
+@startuml AutoParkIQ_Service_Layer
+
+!define CLASS class
+!define INTERFACE interface
+
+title AutoParkIQ - Service Layer Architecture
+
+package "Service Layer" {
+    class VehicleService {
+        -vehicleRepository: VehicleRepository
+        +createVehicle(vehicle: Vehicle): Vehicle
+        +findByLicensePlate(licensePlate: String): Optional<Vehicle>
+        +updateVehicle(vehicle: Vehicle): Vehicle
+        +deleteVehicle(id: Long): void
+        +getAllVehicles(): List<Vehicle>
+        +getVehiclesByType(vehicleType: VehicleType): List<Vehicle>
+        +getTopFrequentVisitors(limit: int): List<Vehicle>
+        +getVehiclesWithActiveTickets(hours: int): List<Vehicle>
+        +validateVehicle(vehicle: Vehicle): void
+        +isValidLicensePlate(licensePlate: String): boolean
+    }
+
+    class ParkingService {
+        -vehicleService: VehicleService
+        -parkingSpotRepository: ParkingSpotRepository
+        -parkingTicketRepository: ParkingTicketRepository
+        -parkingFloorRepository: ParkingFloorRepository
+        -allocationStrategies: List<ParkingSpotAllocationStrategy>
+        +parkVehicle(entryRequest: VehicleEntryRequest): ParkingTicketResponse
+        +exitVehicle(licensePlate: String): ParkingTicketResponse
+        +getParkingStatus(licensePlate: String): ParkingTicketResponse
+        +getAvailability(): AvailabilityResponse
+        +getFloorAvailability(floorId: Long): FloorAvailabilityResponse
+        +getAllActiveTickets(): List<ParkingTicket>
+        +getOverstayingVehicles(hours: int): List<ParkingTicket>
+        +calculateParkingFee(ticket: ParkingTicket): BigDecimal
+        -selectAllocationStrategy(vehicleType: VehicleType): ParkingSpotAllocationStrategy
+        -allocateSpot(vehicleType: VehicleType): Optional<ParkingSpot>
+        -createParkingTicket(vehicle: Vehicle, spot: ParkingSpot): ParkingTicket
+        -validateParkingRequest(vehicle: Vehicle): void
+    }
+
+    class PaymentService {
+        -paymentRepository: PaymentRepository
+        -parkingTicketRepository: ParkingTicketRepository
+        +processPayment(paymentRequest: PaymentRequest): Payment
+        +getPaymentStatus(paymentId: Long): PaymentStatus
+        +getPaymentHistory(ticketId: Long): List<Payment>
+        +calculateRefund(payment: Payment): BigDecimal
+        +processRefund(paymentId: Long): Payment
+        +getDailyRevenue(date: LocalDate): BigDecimal
+        +getMonthlyRevenue(year: int, month: int): BigDecimal
+        +getRevenueByPaymentMethod(method: PaymentMethod): BigDecimal
+        +getTopRevenueGeneratingSpots(limit: int): List<Object[]>
+        -generateTransactionId(): String
+        -validatePaymentRequest(request: PaymentRequest): void
+        -simulatePaymentGateway(payment: Payment): boolean
+    }
+}
+
+package "Strategy Layer" {
+    interface ParkingSpotAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+    }
+
+    class NearestSpotAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+    }
+
+    class OptimalSpotAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+    }
+
+    class RandomSpotAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+    }
+
+    class FloorBasedAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+    }
+}
+
+package "Repository Layer" {
+    interface VehicleRepository {
+        +findByLicensePlate(licensePlate: String): Optional<Vehicle>
+        +findByVehicleType(vehicleType: VehicleType): List<Vehicle>
+        +findTopFrequentVisitors(pageable: Pageable): List<Vehicle>
+    }
+
+    interface ParkingSpotRepository {
+        +findAvailableSpotsByFloorAndType(floorId: Long, spotType: SpotType): List<ParkingSpot>
+        +findAvailableSpotsByType(spotType: SpotType): List<ParkingSpot>
+        +countAvailableSpotsByFloor(floorId: Long): Long
+    }
+
+    interface ParkingTicketRepository {
+        +findByVehicleLicensePlateAndStatus(licensePlate: String, status: TicketStatus): Optional<ParkingTicket>
+        +findActiveTickets(): List<ParkingTicket>
+        +findOverstayingTickets(hours: int): List<ParkingTicket>
+    }
+
+    interface PaymentRepository {
+        +findByTicketId(ticketId: Long): List<Payment>
+        +findByStatus(status: PaymentStatus): List<Payment>
+        +calculateDailyRevenue(date: LocalDate): BigDecimal
+        +calculateMonthlyRevenue(year: int, month: int): BigDecimal
+    }
+
+    interface ParkingFloorRepository {
+        +findByParkingLotId(parkingLotId: Long): List<ParkingFloor>
+        +findByFloorNumber(floorNumber: Integer): Optional<ParkingFloor>
+    }
+}
+
+' Service relationships
+VehicleService --> VehicleRepository : uses
+ParkingService --> VehicleService : uses
+ParkingService --> ParkingSpotRepository : uses
+ParkingService --> ParkingTicketRepository : uses
+ParkingService --> ParkingFloorRepository : uses
+ParkingService --> ParkingSpotAllocationStrategy : uses
+PaymentService --> PaymentRepository : uses
+PaymentService --> ParkingTicketRepository : uses
+
+' Strategy implementations
+ParkingSpotAllocationStrategy <|.. NearestSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. OptimalSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. RandomSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. FloorBasedAllocationStrategy : implements
+
+note top of VehicleService : "Manages vehicle CRUD operations\nand validation"
+note top of ParkingService : "Core parking business logic\nwith strategy pattern"
+note top of PaymentService : "Handles payment processing\nand revenue analytics"
+
+@enduml

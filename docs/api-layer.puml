@@ -1,0 +1,215 @@
+@startuml AutoParkIQ_API_Layer
+
+!define CLASS class
+!define INTERFACE interface
+
+title AutoParkIQ - API Layer and DTOs
+
+package "Controller Layer" {
+    class ParkingController {
+        -parkingService: ParkingService
+        +parkVehicle(entryRequest: VehicleEntryRequest): ResponseEntity<ApiResponse<ParkingTicketResponse>>
+        +exitVehicle(licensePlate: String): ResponseEntity<ApiResponse<ParkingTicketResponse>>
+        +getParkingStatus(licensePlate: String): ResponseEntity<ApiResponse<ParkingTicketResponse>>
+        +getAvailability(): ResponseEntity<ApiResponse<AvailabilityResponse>>
+        +getFloorAvailability(floorId: Long): ResponseEntity<ApiResponse<FloorAvailabilityResponse>>
+        +getAllActiveTickets(): ResponseEntity<ApiResponse<List<ParkingTicketResponse>>>
+        +getOverstayingVehicles(hours: int): ResponseEntity<ApiResponse<List<ParkingTicketResponse>>>
+    }
+
+    class PaymentController {
+        -paymentService: PaymentService
+        +processPayment(paymentRequest: PaymentRequest): ResponseEntity<ApiResponse<PaymentResponse>>
+        +getPaymentStatus(paymentId: Long): ResponseEntity<ApiResponse<PaymentResponse>>
+        +getPaymentHistory(ticketId: Long): ResponseEntity<ApiResponse<List<PaymentResponse>>>
+        +getDailyRevenue(date: LocalDate): ResponseEntity<ApiResponse<RevenueResponse>>
+        +getMonthlyRevenue(year: int, month: int): ResponseEntity<ApiResponse<RevenueResponse>>
+        +getRevenueByPaymentMethod(): ResponseEntity<ApiResponse<Map<PaymentMethod, BigDecimal>>>
+    }
+}
+
+package "DTO Layer" {
+    class ApiResponse<T> {
+        -boolean success
+        -String message
+        -T data
+        -LocalDateTime timestamp
+        -ErrorDetails error
+        +success(data: T): ApiResponse<T>
+        +success(message: String, data: T): ApiResponse<T>
+        +error(message: String): ApiResponse<T>
+        +error(message: String, error: ErrorDetails): ApiResponse<T>
+        +isSuccess(): boolean
+        +getMessage(): String
+        +getData(): T
+        +getTimestamp(): LocalDateTime
+        +getError(): ErrorDetails
+    }
+
+    class VehicleEntryRequest {
+        -String licensePlate
+        -VehicleType vehicleType
+        -String ownerName
+        -String ownerPhone
+        -String ownerEmail
+        +getLicensePlate(): String
+        +setLicensePlate(String): void
+        +getVehicleType(): VehicleType
+        +setVehicleType(VehicleType): void
+        +getOwnerName(): String
+        +setOwnerName(String): void
+        +getOwnerPhone(): String
+        +setOwnerPhone(String): void
+        +getOwnerEmail(): String
+        +setOwnerEmail(String): void
+        +toVehicle(): Vehicle
+    }
+
+    class PaymentRequest {
+        -Long ticketId
+        -PaymentMethod paymentMethod
+        -BigDecimal amount
+        +getTicketId(): Long
+        +setTicketId(Long): void
+        +getPaymentMethod(): PaymentMethod
+        +setPaymentMethod(PaymentMethod): void
+        +getAmount(): BigDecimal
+        +setAmount(BigDecimal): void
+        +toPayment(ticket: ParkingTicket): Payment
+    }
+
+    class ParkingTicketResponse {
+        -Long ticketId
+        -String licensePlate
+        -String spotNumber
+        -Integer floorNumber
+        -LocalDateTime entryTime
+        -LocalDateTime exitTime
+        -BigDecimal totalFee
+        -TicketStatus status
+        -VehicleType vehicleType
+        -String duration
+        +fromEntity(ticket: ParkingTicket): ParkingTicketResponse
+        +calculateDuration(entry: LocalDateTime, exit: LocalDateTime): String
+    }
+
+    class PaymentResponse {
+        -Long paymentId
+        -Long ticketId
+        -BigDecimal amount
+        -PaymentMethod method
+        -PaymentStatus status
+        -LocalDateTime paymentTime
+        -String transactionId
+        +fromEntity(payment: Payment): PaymentResponse
+    }
+
+    class AvailabilityResponse {
+        -Integer totalSpots
+        -Integer availableSpots
+        -Integer occupiedSpots
+        -Double occupancyRate
+        -List<FloorAvailabilityResponse> floorWiseAvailability
+        -Map<SpotType, Integer> availableSpotsByType
+        +calculateOccupancyRate(): Double
+        +addFloorAvailability(floor: FloorAvailabilityResponse): void
+    }
+
+    class FloorAvailabilityResponse {
+        -Long floorId
+        -Integer floorNumber
+        -Integer totalSpots
+        -Integer availableSpots
+        -Integer occupiedSpots
+        -Map<SpotType, Integer> spotsByType
+        +calculateOccupancyRate(): Double
+    }
+
+    class RevenueResponse {
+        -BigDecimal totalRevenue
+        -LocalDate date
+        -Integer totalTransactions
+        -Map<PaymentMethod, BigDecimal> revenueByMethod
+        -Map<VehicleType, BigDecimal> revenueByVehicleType
+        +addMethodRevenue(method: PaymentMethod, amount: BigDecimal): void
+        +addVehicleTypeRevenue(type: VehicleType, amount: BigDecimal): void
+    }
+
+    class ErrorDetails {
+        -String type
+        -String code
+        -String details
+        -Map<String, String> fieldErrors
+        +ErrorDetails(type: String, code: String, details: String)
+        +addFieldError(field: String, message: String): void
+        +getType(): String
+        +getCode(): String
+        +getDetails(): String
+        +getFieldErrors(): Map<String, String>
+    }
+}
+
+package "Exception Layer" {
+    class GlobalExceptionHandler {
+        +handleParkingException(ex: ParkingException): ResponseEntity<ApiResponse<Void>>
+        +handleResourceNotFoundException(ex: ResourceNotFoundException): ResponseEntity<ApiResponse<Void>>
+        +handleValidationException(ex: MethodArgumentNotValidException): ResponseEntity<ApiResponse<Void>>
+        +handleConstraintViolationException(ex: ConstraintViolationException): ResponseEntity<ApiResponse<Void>>
+        +handleGeneralException(ex: Exception): ResponseEntity<ApiResponse<Void>>
+        -createErrorResponse(message: String, type: String, code: String): ApiResponse<Void>
+        -extractFieldErrors(bindingResult: BindingResult): Map<String, String>
+    }
+
+    class ParkingException {
+        +ParkingException(message: String)
+        +ParkingException(message: String, cause: Throwable)
+    }
+
+    class ResourceNotFoundException {
+        +ResourceNotFoundException(message: String)
+        +ResourceNotFoundException(resource: String, field: String, value: Object)
+    }
+}
+
+package "Service Layer" {
+    class ParkingService {
+        +parkVehicle(entryRequest: VehicleEntryRequest): ParkingTicketResponse
+        +exitVehicle(licensePlate: String): ParkingTicketResponse
+        +getParkingStatus(licensePlate: String): ParkingTicketResponse
+        +getAvailability(): AvailabilityResponse
+    }
+
+    class PaymentService {
+        +processPayment(paymentRequest: PaymentRequest): Payment
+        +getPaymentStatus(paymentId: Long): PaymentStatus
+        +getDailyRevenue(date: LocalDate): BigDecimal
+        +getMonthlyRevenue(year: int, month: int): BigDecimal
+    }
+}
+
+' Controller relationships
+ParkingController --> ParkingService : uses
+PaymentController --> PaymentService : uses
+
+' DTO relationships
+ParkingController --> VehicleEntryRequest : receives
+ParkingController --> ParkingTicketResponse : returns
+PaymentController --> PaymentRequest : receives
+PaymentController --> PaymentResponse : returns
+
+' Generic response wrapper
+ParkingController --> ApiResponse : uses
+PaymentController --> ApiResponse : uses
+
+' Exception handling
+GlobalExceptionHandler --> ParkingException : handles
+GlobalExceptionHandler --> ResourceNotFoundException : handles
+GlobalExceptionHandler --> ApiResponse : creates
+GlobalExceptionHandler --> ErrorDetails : creates
+
+note top of ParkingController : "REST endpoints for parking operations\nwith comprehensive request/response handling"
+note top of PaymentController : "REST endpoints for payment processing\nand revenue analytics"
+note top of ApiResponse : "Generic response wrapper\nfor consistent API responses"
+note top of GlobalExceptionHandler : "Centralized exception handling\nwith structured error responses"
+
+@enduml

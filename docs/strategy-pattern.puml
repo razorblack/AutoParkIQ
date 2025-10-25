@@ -1,0 +1,106 @@
+@startuml AutoParkIQ_Strategy_Pattern
+
+!define INTERFACE interface
+!define CLASS class
+
+title AutoParkIQ - Strategy Pattern Implementation
+
+package "Strategy Pattern" {
+    interface ParkingSpotAllocationStrategy {
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+    }
+
+    class NearestSpotAllocationStrategy {
+        -parkingSpotRepository: ParkingSpotRepository
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+        -findNearestAvailableSpot(spots: List<ParkingSpot>): Optional<ParkingSpot>
+        -calculateDistance(spot: ParkingSpot): Double
+    }
+
+    class OptimalSpotAllocationStrategy {
+        -parkingSpotRepository: ParkingSpotRepository
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+        -findOptimalSpot(spots: List<ParkingSpot>, vehicleType: VehicleType): Optional<ParkingSpot>
+        -calculateOptimalityScore(spot: ParkingSpot, vehicleType: VehicleType): Double
+    }
+
+    class RandomSpotAllocationStrategy {
+        -parkingSpotRepository: ParkingSpotRepository
+        -random: Random
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+        -selectRandomSpot(spots: List<ParkingSpot>): Optional<ParkingSpot>
+    }
+
+    class FloorBasedAllocationStrategy {
+        -parkingSpotRepository: ParkingSpotRepository
+        +allocateSpot(vehicleType: VehicleType, floor: ParkingFloor): Optional<ParkingSpot>
+        +getStrategyName(): String
+        +getPriority(): Integer
+        +supports(vehicleType: VehicleType): boolean
+        -getPreferredFloor(vehicleType: VehicleType): Integer
+        -findSpotOnPreferredFloor(vehicleType: VehicleType, preferredFloor: Integer): Optional<ParkingSpot>
+    }
+}
+
+package "Service Layer" {
+    class ParkingService {
+        -allocationStrategies: List<ParkingSpotAllocationStrategy>
+        -parkingSpotRepository: ParkingSpotRepository
+        -parkingTicketRepository: ParkingTicketRepository
+        -vehicleService: VehicleService
+        +parkVehicle(entryRequest: VehicleEntryRequest): ParkingTicketResponse
+        +exitVehicle(licensePlate: String): ParkingTicketResponse
+        +getParkingStatus(licensePlate: String): ParkingTicketResponse
+        +getAvailability(): AvailabilityResponse
+        -selectAllocationStrategy(vehicleType: VehicleType): ParkingSpotAllocationStrategy
+        -allocateSpot(vehicleType: VehicleType): Optional<ParkingSpot>
+        -calculateFee(ticket: ParkingTicket): BigDecimal
+        -createParkingTicket(vehicle: Vehicle, spot: ParkingSpot): ParkingTicket
+    }
+}
+
+package "Repository Layer" {
+    interface ParkingSpotRepository {
+        +findAvailableSpotsByFloorAndType(floorId: Long, spotType: SpotType): List<ParkingSpot>
+        +findAvailableSpotsByType(spotType: SpotType): List<ParkingSpot>
+        +findNearestAvailableSpot(floorId: Long, spotType: SpotType): Optional<ParkingSpot>
+        +countAvailableSpotsByFloor(floorId: Long): Long
+        +countAvailableSpotsByType(spotType: SpotType): Long
+    }
+}
+
+' Strategy pattern relationships
+ParkingSpotAllocationStrategy <|.. NearestSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. OptimalSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. RandomSpotAllocationStrategy : implements
+ParkingSpotAllocationStrategy <|.. FloorBasedAllocationStrategy : implements
+
+' Service uses strategies
+ParkingService --> ParkingSpotAllocationStrategy : uses
+ParkingService --> ParkingSpotRepository : uses
+
+' Strategy implementations use repository
+NearestSpotAllocationStrategy --> ParkingSpotRepository : uses
+OptimalSpotAllocationStrategy --> ParkingSpotRepository : uses
+RandomSpotAllocationStrategy --> ParkingSpotRepository : uses
+FloorBasedAllocationStrategy --> ParkingSpotRepository : uses
+
+note top of ParkingSpotAllocationStrategy : "Strategy interface for different\nspot allocation algorithms"
+note right of NearestSpotAllocationStrategy : "Allocates the nearest available spot\nbased on physical distance"
+note right of OptimalSpotAllocationStrategy : "Allocates based on optimization\ncriteria (size match, efficiency)"
+note right of RandomSpotAllocationStrategy : "Random allocation for load\ndistribution"
+note right of FloorBasedAllocationStrategy : "Allocates based on vehicle type\npreferred floors"
+
+@enduml

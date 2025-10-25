@@ -1,0 +1,280 @@
+@startuml AutoParkIQ_Domain_Model
+
+!define ENTITY class
+!define ENUM enum
+!define INTERFACE interface
+
+title AutoParkIQ - Domain Model Class Diagram
+
+package "Entity Layer" {
+    abstract class BaseEntity {
+        -Long id
+        -LocalDateTime createdAt
+        -LocalDateTime updatedAt
+        -Integer version
+        +getId(): Long
+        +setId(Long): void
+        +getCreatedAt(): LocalDateTime
+        +getUpdatedAt(): LocalDateTime
+        +getVersion(): Integer
+    }
+
+    class Vehicle {
+        -String licensePlate
+        -VehicleType vehicleType
+        -String ownerName
+        -String ownerPhone
+        -String ownerEmail
+        +Vehicle()
+        +Vehicle(String, VehicleType, String, String, String)
+        +getLicensePlate(): String
+        +setLicensePlate(String): void
+        +getVehicleType(): VehicleType
+        +setVehicleType(VehicleType): void
+        +getOwnerName(): String
+        +setOwnerName(String): void
+        +getOwnerPhone(): String
+        +setOwnerPhone(String): void
+        +getOwnerEmail(): String
+        +setOwnerEmail(String): void
+        +isCompatibleWith(SpotType): boolean
+        +builder(): VehicleBuilder
+    }
+
+    class ParkingLot {
+        -String name
+        -String address
+        -Integer totalFloors
+        -Integer totalSpots
+        -List<ParkingFloor> floors
+        +ParkingLot()
+        +ParkingLot(String, String)
+        +getName(): String
+        +setName(String): void
+        +getAddress(): String
+        +setAddress(String): void
+        +getTotalFloors(): Integer
+        +setTotalFloors(Integer): void
+        +getTotalSpots(): Integer
+        +setTotalSpots(Integer): void
+        +getFloors(): List<ParkingFloor>
+        +setFloors(List<ParkingFloor>): void
+        +addFloor(ParkingFloor): void
+        +removeFloor(ParkingFloor): void
+        +calculateTotalSpots(): void
+        +builder(): ParkingLotBuilder
+    }
+
+    class ParkingFloor {
+        -Integer floorNumber
+        -Integer totalSpots
+        -ParkingLot parkingLot
+        -List<ParkingSpot> spots
+        +ParkingFloor()
+        +ParkingFloor(Integer, ParkingLot)
+        +getFloorNumber(): Integer
+        +setFloorNumber(Integer): void
+        +getTotalSpots(): Integer
+        +setTotalSpots(Integer): void
+        +getParkingLot(): ParkingLot
+        +setParkingLot(ParkingLot): void
+        +getSpots(): List<ParkingSpot>
+        +setSpots(List<ParkingSpot>): void
+        +addSpot(ParkingSpot): void
+        +removeSpot(ParkingSpot): void
+        +getAvailableSpots(): List<ParkingSpot>
+        +getAvailableSpotsByType(SpotType): List<ParkingSpot>
+        +calculateTotalSpots(): void
+        +builder(): ParkingFloorBuilder
+    }
+
+    class ParkingSpot {
+        -String spotNumber
+        -SpotType spotType
+        -SpotStatus status
+        -Integer locationX
+        -Integer locationY
+        -ParkingFloor floor
+        +ParkingSpot()
+        +ParkingSpot(String, SpotType, ParkingFloor)
+        +getSpotNumber(): String
+        +setSpotNumber(String): void
+        +getSpotType(): SpotType
+        +setSpotType(SpotType): void
+        +getStatus(): SpotStatus
+        +setStatus(SpotStatus): void
+        +getLocationX(): Integer
+        +setLocationX(Integer): void
+        +getLocationY(): Integer
+        +setLocationY(Integer): void
+        +getFloor(): ParkingFloor
+        +setFloor(ParkingFloor): void
+        +isAvailable(): boolean
+        +isCompatibleWith(VehicleType): boolean
+        +occupy(): void
+        +release(): void
+        +builder(): ParkingSpotBuilder
+    }
+
+    class ParkingTicket {
+        -Vehicle vehicle
+        -ParkingSpot spot
+        -LocalDateTime entryTime
+        -LocalDateTime exitTime
+        -BigDecimal totalFee
+        -TicketStatus status
+        -Payment payment
+        +ParkingTicket()
+        +ParkingTicket(Vehicle, ParkingSpot)
+        +getVehicle(): Vehicle
+        +setVehicle(Vehicle): void
+        +getSpot(): ParkingSpot
+        +setSpot(ParkingSpot): void
+        +getEntryTime(): LocalDateTime
+        +setEntryTime(LocalDateTime): void
+        +getExitTime(): LocalDateTime
+        +setExitTime(LocalDateTime): void
+        +getTotalFee(): BigDecimal
+        +setTotalFee(BigDecimal): void
+        +getStatus(): TicketStatus
+        +setStatus(TicketStatus): void
+        +getPayment(): Payment
+        +setPayment(Payment): void
+        +calculateDuration(): Duration
+        +isActive(): boolean
+        +complete(): void
+        +cancel(): void
+        +builder(): ParkingTicketBuilder
+    }
+
+    class Payment {
+        -ParkingTicket ticket
+        -BigDecimal amount
+        -PaymentMethod method
+        -LocalDateTime paymentTime
+        -PaymentStatus status
+        -String transactionId
+        +Payment()
+        +Payment(ParkingTicket, BigDecimal, PaymentMethod)
+        +getTicket(): ParkingTicket
+        +setTicket(ParkingTicket): void
+        +getAmount(): BigDecimal
+        +setAmount(BigDecimal): void
+        +getMethod(): PaymentMethod
+        +setMethod(PaymentMethod): void
+        +getPaymentTime(): LocalDateTime
+        +setPaymentTime(LocalDateTime): void
+        +getStatus(): PaymentStatus
+        +setStatus(PaymentStatus): void
+        +getTransactionId(): String
+        +setTransactionId(String): void
+        +process(): void
+        +fail(): void
+        +generateTransactionId(): String
+        +builder(): PaymentBuilder
+    }
+}
+
+package "Enum Layer" {
+    enum VehicleType {
+        MOTORCYCLE(1, 50.0, 10.0)
+        CAR(2, 100.0, 20.0)
+        TRUCK(3, 200.0, 40.0)
+        --
+        -Integer sizeCategory
+        -Double length
+        -Double hourlyRate
+        +getSizeCategory(): Integer
+        +getLength(): Double
+        +getHourlyRate(): Double
+        +isCompatibleWith(SpotType): boolean
+    }
+
+    enum SpotType {
+        MOTORCYCLE(1, "Motorcycle Spot")
+        CAR(2, "Car Spot")
+        LARGE(3, "Large Vehicle Spot")
+        --
+        -Integer capacity
+        -String description
+        +getCapacity(): Integer
+        +getDescription(): String
+        +canAccommodate(VehicleType): boolean
+    }
+
+    enum SpotStatus {
+        AVAILABLE("Available for parking")
+        OCCUPIED("Currently occupied")
+        MAINTENANCE("Under maintenance")
+        RESERVED("Reserved for special use")
+        --
+        -String description
+        +getDescription(): String
+        +isAvailable(): boolean
+    }
+
+    enum TicketStatus {
+        ACTIVE("Parking session active")
+        COMPLETED("Parking session completed")
+        CANCELLED("Parking session cancelled")
+        EXPIRED("Parking session expired")
+        --
+        -String description
+        +getDescription(): String
+        +isActive(): boolean
+    }
+
+    enum PaymentStatus {
+        PENDING("Payment pending")
+        COMPLETED("Payment successful")
+        FAILED("Payment failed")
+        REFUNDED("Payment refunded")
+        --
+        -String description
+        +getDescription(): String
+        +isSuccessful(): boolean
+    }
+
+    enum PaymentMethod {
+        CASH("Cash payment")
+        CARD("Credit/Debit card")
+        DIGITAL_WALLET("Digital wallet")
+        UPI("UPI payment")
+        --
+        -String description
+        +getDescription(): String
+        +isDigital(): boolean
+    }
+}
+
+' Inheritance relationships
+BaseEntity <|-- Vehicle
+BaseEntity <|-- ParkingLot
+BaseEntity <|-- ParkingFloor
+BaseEntity <|-- ParkingSpot
+BaseEntity <|-- ParkingTicket
+BaseEntity <|-- Payment
+
+' Composition relationships
+ParkingLot ||--o{ ParkingFloor : "contains"
+ParkingFloor ||--o{ ParkingSpot : "contains"
+
+' Association relationships
+Vehicle ||--o{ ParkingTicket : "generates"
+ParkingSpot ||--o{ ParkingTicket : "assigned to"
+ParkingTicket ||--|| Payment : "requires"
+
+' Enum relationships
+Vehicle --> VehicleType : "uses"
+ParkingSpot --> SpotType : "uses"
+ParkingSpot --> SpotStatus : "has"
+ParkingTicket --> TicketStatus : "has"
+Payment --> PaymentMethod : "uses"
+Payment --> PaymentStatus : "has"
+
+note top of Vehicle : "Represents vehicles using the parking system"
+note top of ParkingLot : "Main parking facility container"
+note top of ParkingTicket : "Tracks parking sessions and billing"
+note top of Payment : "Handles payment processing"
+
+@enduml
