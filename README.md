@@ -1,340 +1,469 @@
 # AutoParkIQ - Smart Parking Management System
 
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.7-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-blue.svg)](https://www.mysql.com/)
+[![Maven](https://img.shields.io/badge/Maven-3.6+-yellow.svg)](https://maven.apache.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 ## 🅿️ Project Overview
 
 AutoParkIQ is an intelligent parking management system designed to efficiently handle vehicle entry/exit management, parking space allocation, and fee calculation for multi-floor parking lots. The system automatically assigns parking spots based on vehicle size and availability, tracks parking duration, and calculates fees upon exit.
 
-## 🎯 Functional Requirements
+## 🎯 Key Features
 
-### Core Features
-- **Automatic Spot Allocation**: Assign available parking spots based on vehicle size (motorcycle, car, bus)
-- **Check-In/Check-Out Management**: Record entry and exit times with ticket generation
-- **Dynamic Fee Calculation**: Calculate fees based on duration and vehicle type
-- **Real-Time Availability**: Update parking spot availability in real-time
-- **Multi-Floor Support**: Handle multiple parking floors and spot types
-- **Concurrency Handling**: Support multiple simultaneous vehicle operations
-
-### Business Rules
-- Vehicle size determines eligible spot types (motorcycle can park in any spot, car in car/large spots, bus only in large spots)
-- Fee calculation based on hourly rates with different pricing for vehicle types
-- Spot allocation follows configurable strategies (nearest first, random, etc.)
-- Real-time tracking of parking lot capacity and availability
+- **Smart Spot Allocation**: Multiple allocation strategies (Nearest, Optimal, Random, Floor-based)
+- **Real-time Parking Management**: Instant spot availability and allocation
+- **Multi-Vehicle Support**: Cars, motorcycles, trucks with size-based allocation
+- **Dynamic Fee Calculation**: Hourly/daily rates with vehicle-type pricing
+- **Concurrent Operations**: Thread-safe operations with pessimistic locking
+- **RESTful APIs**: Comprehensive REST endpoints with Swagger documentation
+- **Analytics & Reporting**: Revenue tracking, occupancy reports, utilization metrics
+- **Exception Handling**: Comprehensive error management with custom exceptions
 
 ## 🏗️ System Architecture
 
-### High-Level Architecture
+### Project Structure
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   REST API      │    │   Service       │    │   Repository    │
-│   Controllers   │───▶│   Layer         │───▶│   Layer         │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   DTOs &        │    │   Business      │    │   JPA           │
-│   Validation    │    │   Logic         │    │   Entities      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │                       │
-                                ▼                       ▼
-                      ┌─────────────────┐    ┌─────────────────┐
-                      │   Strategy      │    │   MySQL         │
-                      │   Patterns      │    │   Database      │
-                      └─────────────────┘    └─────────────────┘
+src/main/java/me/razorblack/autoparkiq/
+├── AutoParkIqApplication.java          # Main Spring Boot application
+├── config/                             # Configuration classes
+│   ├── AppConstants.java              # Application constants
+│   ├── JpaConfig.java                 # JPA/Database configuration
+│   └── OpenApiConfig.java             # Swagger/OpenAPI configuration
+├── controller/                         # REST API controllers
+│   ├── ParkingController.java         # Parking operations API
+│   └── PaymentController.java         # Payment operations API
+├── dto/                               # Data Transfer Objects
+│   ├── ApiResponse.java               # Standard API response wrapper
+│   ├── VehicleEntryRequest.java       # Vehicle entry request DTO
+│   ├── PaymentRequest.java            # Payment request DTO
+│   └── ParkingTicketResponse.java     # Parking ticket response DTO
+├── exception/                          # Custom exceptions
+│   ├── GlobalExceptionHandler.java    # Global exception handler
+│   ├── ParkingException.java          # Parking business logic exceptions
+│   └── ResourceNotFoundException.java # Resource not found exceptions
+├── model/                             # Domain entities and enums
+│   ├── entity/                        # JPA entities
+│   │   ├── BaseEntity.java           # Base entity with audit fields
+│   │   ├── Vehicle.java              # Vehicle entity
+│   │   ├── ParkingLot.java           # Parking lot entity
+│   │   ├── ParkingFloor.java         # Parking floor entity
+│   │   ├── ParkingSpot.java          # Parking spot entity
+│   │   ├── ParkingTicket.java        # Parking ticket entity
+│   │   └── Payment.java              # Payment entity
+│   └── enums/                         # System enumerations
+│       ├── VehicleType.java          # MOTORCYCLE, CAR, TRUCK
+│       ├── SpotType.java             # MOTORCYCLE, CAR, LARGE
+│       ├── SpotStatus.java           # AVAILABLE, OCCUPIED, MAINTENANCE
+│       ├── TicketStatus.java         # ACTIVE, COMPLETED, CANCELLED
+│       ├── PaymentStatus.java        # PENDING, COMPLETED, FAILED
+│       └── PaymentMethod.java        # CASH, CARD, DIGITAL_WALLET
+├── repository/                        # Data access layer
+│   ├── VehicleRepository.java        # Vehicle data operations
+│   ├── ParkingLotRepository.java     # Parking lot operations
+│   ├── ParkingFloorRepository.java   # Floor operations
+│   ├── ParkingSpotRepository.java    # Spot operations & availability
+│   ├── ParkingTicketRepository.java  # Ticket operations & analytics
+│   └── PaymentRepository.java        # Payment operations & reporting
+└── service/                          # Business logic layer
+    ├── VehicleService.java           # Vehicle management service
+    ├── ParkingService.java           # Core parking operations
+    ├── PaymentService.java           # Payment processing service
+    └── strategy/                     # Strategy pattern implementations
+        ├── ParkingSpotAllocationStrategy.java    # Strategy interface
+        ├── NearestSpotAllocationStrategy.java    # Nearest spot algorithm
+        ├── OptimalSpotAllocationStrategy.java    # Optimal allocation algorithm
+        ├── RandomSpotAllocationStrategy.java     # Random allocation algorithm
+        └── FloorBasedAllocationStrategy.java     # Floor-based algorithm
+
+src/main/resources/
+├── application.properties            # Application configuration
+├── static/                          # Static web resources
+└── templates/                       # Template files
+
+sqlQuery/
+└── autoparkiq_db.sql               # Database schema with sample data
 ```
 
-### Design Patterns Used
+## 📊 System Architecture Diagrams
 
-#### 1. **Strategy Pattern**
-- **ParkingSpotAllocationStrategy**: Different algorithms for spot allocation
-  - `NearestSpotStrategy`: Allocate nearest available spot
-  - `RandomSpotStrategy`: Random spot allocation
-  - `FloorBasedStrategy`: Allocate by preferred floor
+### Complete System Architecture
+![Complete System Architecture](docs/complete-system-classDiagram.png)
 
-#### 2. **Factory Pattern**
-- **VehicleFactory**: Create vehicle instances based on type
-- **FeeCalculatorFactory**: Create appropriate fee calculators
+### Core Domain Model
+![Domain Model Class Diagram](docs/classDiagram.png)
 
-#### 3. **Builder Pattern**
-- **ParkingLotBuilder**: Configure parking lot with floors and spots
-- **TicketBuilder**: Create parking tickets with validation
+### Strategy Pattern Implementation
+![Strategy Pattern Diagram](docs/strategy-pattern-classDiagram.png)
 
-#### 4. **Repository Pattern**
-- **Data Access Layer**: Abstract database operations
-- **Custom Queries**: Optimized queries for spot allocation
+### Service Layer Architecture
+![Service Architecture Diagram](docs/service-architecture-classDiagram.png)
 
-#### 5. **Decorator Pattern**
-- **FeeCalculatorDecorator**: Add additional charges (peak hours, holidays)
+### API Layer Structure
+![API Layer Diagram](docs/api-layer-classDiagram.png)
 
-### Design Principles Applied
+## 🚀 API Endpoints & Examples
 
-#### SOLID Principles
-- **Single Responsibility**: Each class has one reason to change
-- **Open/Closed**: Open for extension, closed for modification
-- **Liskov Substitution**: Derived classes are substitutable for base classes
-- **Interface Segregation**: Clients depend only on interfaces they use
-- **Dependency Inversion**: Depend on abstractions, not concretions
+### 1. Vehicle Entry
+**Endpoint:** `POST /api/v1/parking/entry`
 
-#### Additional Principles
-- **DRY (Don't Repeat Yourself)**: Eliminate code duplication
-- **KISS (Keep It Simple, Stupid)**: Maintain simplicity
-- **YAGNI (You Aren't Gonna Need It)**: Implement only required features
+**Request:**
+```json
+{
+    "licensePlate": "KA01AB1234",
+    "vehicleType": "CAR",
+    "ownerName": "John Doe",
+    "ownerPhone": "+91-9876543210",
+    "ownerEmail": "john.doe@email.com"
+}
+```
 
-## 📊 Data Model
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Vehicle entry successful",
+    "data": {
+        "ticketId": 1,
+        "licensePlate": "KA01AB1234",
+        "spotNumber": "A101",
+        "floorNumber": 1,
+        "entryTime": "2025-10-25T10:30:00",
+        "vehicleType": "CAR",
+        "hourlyRate": 20.00
+    },
+    "timestamp": "2025-10-25T10:30:00"
+}
+```
 
-### Core Entities
+### 2. Vehicle Exit & Payment
+**Endpoint:** `POST /api/v1/parking/exit`
 
-#### Vehicle Hierarchy
+**Request:**
+```json
+{
+    "licensePlate": "KA01AB1234"
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Vehicle exit successful",
+    "data": {
+        "ticketId": 1,
+        "licensePlate": "KA01AB1234",
+        "entryTime": "2025-10-25T10:30:00",
+        "exitTime": "2025-10-25T13:45:00",
+        "duration": "3 hours 15 minutes",
+        "totalFee": 80.00,
+        "spotNumber": "A101"
+    },
+    "timestamp": "2025-10-25T13:45:00"
+}
+```
+
+### 3. Process Payment
+**Endpoint:** `POST /api/v1/payments/process`
+
+**Request:**
+```json
+{
+    "ticketId": 1,
+    "paymentMethod": "CARD",
+    "amount": 80.00
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Payment processed successfully",
+    "data": {
+        "paymentId": 1,
+        "transactionId": "TXN_20251025_001",
+        "amount": 80.00,
+        "paymentMethod": "CARD",
+        "status": "COMPLETED",
+        "paymentTime": "2025-10-25T13:45:30"
+    },
+    "timestamp": "2025-10-25T13:45:30"
+}
+```
+
+### 4. Check Parking Status
+**Endpoint:** `GET /api/v1/parking/status/{licensePlate}`
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Parking status retrieved successfully",
+    "data": {
+        "licensePlate": "KA01AB1234",
+        "status": "ACTIVE",
+        "spotNumber": "A101",
+        "floorNumber": 1,
+        "entryTime": "2025-10-25T10:30:00",
+        "duration": "3 hours 15 minutes",
+        "currentFee": 80.00
+    },
+    "timestamp": "2025-10-25T13:45:00"
+}
+```
+
+### 5. Real-time Availability
+**Endpoint:** `GET /api/v1/parking/availability`
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Availability information retrieved",
+    "data": {
+        "totalSpots": 200,
+        "availableSpots": 45,
+        "occupiedSpots": 155,
+        "occupancyRate": 77.5,
+        "floorWiseAvailability": [
+            {
+                "floorNumber": 1,
+                "totalSpots": 50,
+                "availableSpots": 12,
+                "spotsByType": {
+                    "MOTORCYCLE": 5,
+                    "CAR": 6,
+                    "LARGE": 1
+                }
+            }
+        ]
+    },
+    "timestamp": "2025-10-25T13:45:00"
+}
+```
+
+## 🔥 Custom Exceptions
+
+### Exception Hierarchy
 ```java
-Vehicle (Abstract)
-├── Motorcycle
-├── Car  
-└── Bus
+RuntimeException
+├── ParkingException              // Business logic errors
+│   ├── "No available spots for vehicle type"
+│   ├── "Vehicle already parked"
+│   ├── "Invalid parking duration"
+│   └── "Payment processing failed"
+└── ResourceNotFoundException     // Resource not found errors
+    ├── "Vehicle not found with license plate: KA01AB1234"
+    ├── "Parking ticket not found with id: 123"
+    ├── "Parking spot not found with id: 456"
+    └── "Payment not found with id: 789"
 ```
 
-#### Parking Infrastructure
-```java
-ParkingLot
-├── List<ParkingFloor>
-└── ParkingLotConfiguration
-
-ParkingFloor
-├── List<ParkingSpot>
-└── FloorMetadata
-
-ParkingSpot
-├── SpotType (MOTORCYCLE, CAR, LARGE)
-├── SpotStatus (AVAILABLE, OCCUPIED, MAINTENANCE)
-└── Location details
+### Exception Response Format
+```json
+{
+    "success": false,
+    "message": "Vehicle not found with license plate: INVALID123",
+    "error": {
+        "type": "RESOURCE_NOT_FOUND",
+        "code": "VEHICLE_NOT_FOUND",
+        "details": "The vehicle with the provided license plate does not exist in the system",
+        "timestamp": "2025-10-25T13:45:00"
+    }
+}
 ```
 
-#### Transaction Management
-```java
-ParkingTicket
-├── Vehicle information
-├── ParkingSpot assignment
-├── Entry/Exit timestamps
-├── Fee calculation
-└── Payment status
-```
+### Global Exception Handler
+The system includes a comprehensive global exception handler that manages:
+- **Validation Errors**: Field validation failures with detailed messages
+- **Business Logic Errors**: Custom parking exceptions with context
+- **Resource Not Found**: Missing entities with helpful error messages
+- **System Errors**: Database and runtime exceptions with sanitized responses
 
-### Database Schema
-```sql
--- Core Tables
-parking_lots (id, name, address, total_floors, created_at)
-parking_floors (id, parking_lot_id, floor_number, total_spots)
-parking_spots (id, floor_id, spot_number, spot_type, status, location_x, location_y)
-vehicles (id, license_plate, vehicle_type, owner_info, created_at)
-parking_tickets (id, vehicle_id, spot_id, entry_time, exit_time, total_fee, status)
-payments (id, ticket_id, amount, payment_method, payment_time, status)
-
--- Configuration Tables
-fee_configurations (id, vehicle_type, hourly_rate, daily_rate, created_at)
-parking_rules (id, rule_type, rule_value, description, is_active)
-```
-
-## 🚀 API Endpoints
-
-### Parking Operations
-```http
-POST   /api/v1/parking/entry          # Vehicle entry
-POST   /api/v1/parking/exit           # Vehicle exit and payment
-GET    /api/v1/parking/status/{plate} # Check parking status
-```
-
-### Real-time Information
-```http
-GET    /api/v1/parking/availability    # Current availability
-GET    /api/v1/parking/floors/{id}     # Floor-wise availability
-GET    /api/v1/parking/spots/{type}    # Available spots by type
-```
-
-### Administration
-```http
-POST   /api/v1/admin/parking-lot      # Create parking lot
-PUT    /api/v1/admin/spots/{id}       # Update spot status
-GET    /api/v1/admin/reports/daily    # Daily reports
-GET    /api/v1/admin/revenue          # Revenue analytics
-```
-
-## 🔧 Technology Stack
-
-### Backend Framework
-- **Spring Boot 3.5.7**: Main application framework
-- **Spring Data JPA**: Data persistence layer
-- **Spring Web**: REST API development
-- **Spring Security**: Authentication and authorization (future)
-
-### Database
-- **MySQL 8.0**: Primary database
-- **HikariCP**: Connection pooling
-- **Flyway**: Database migration (future)
-
-### Development Tools
-- **Lombok**: Reduce boilerplate code
-- **Maven**: Build and dependency management
-- **JUnit 5**: Unit and integration testing
-- **Mockito**: Mocking framework
-
-### Observability
-- **Spring Actuator**: Application monitoring
-- **Micrometer**: Metrics collection
-- **SLF4J + Logback**: Logging
-
-## 🛠️ Development Setup
+## ⚙️ Setup & Installation
 
 ### Prerequisites
-- Java 17 or higher
-- Maven 3.6+
-- MySQL 8.0+
-- IDE (IntelliJ IDEA/Eclipse)
+- **Java 17+** (OpenJDK or Oracle JDK)
+- **Maven 3.6+** for dependency management
+- **MySQL 8.0+** for database storage
+- **IDE** (IntelliJ IDEA, Eclipse, or VS Code)
 
-### Local Development
-```bash
-# Clone repository
-git clone <repository-url>
-cd AutoParkIQ
+### Database Setup
+1. **Install MySQL 8.0+**
+2. **Create Database:**
+   ```sql
+   CREATE DATABASE autoparkiq_db;
+   CREATE USER 'autoparkiq_user'@'localhost' IDENTIFIED BY 'your_password';
+   GRANT ALL PRIVILEGES ON autoparkiq_db.* TO 'autoparkiq_user'@'localhost';
+   FLUSH PRIVILEGES;
+   ```
 
-# Configure database
-mysql -u root -p
-CREATE DATABASE autoparkiq_db;
+3. **Run Database Schema:**
+   ```bash
+   mysql -u autoparkiq_user -p autoparkiq_db < sqlQuery/autoparkiq_db.sql
+   ```
 
-# Update application.properties with your DB credentials
-# Run application
-mvn spring-boot:run
+### Application Setup
 
-# Application will start on http://localhost:8089
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/razorblack/AutoParkIQ.git
+   cd AutoParkIQ
+   ```
+
+2. **Configure Database Connection:**
+   Update `src/main/resources/application.properties`:
+   ```properties
+   # Database Configuration
+   spring.datasource.url=jdbc:mysql://localhost:3306/autoparkiq_db
+   spring.datasource.username=autoparkiq_user
+   spring.datasource.password=your_password
+   ```
+
+3. **Build the Project:**
+   ```bash
+   # Using Maven wrapper (recommended)
+   ./mvnw clean compile
+   
+   # Or using Maven directly
+   mvn clean compile
+   ```
+
+4. **Run Tests:**
+   ```bash
+   ./mvnw test
+   ```
+
+5. **Start the Application:**
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+
+6. **Access the Application:**
+   - **Main Application:** http://localhost:8089
+   - **API Documentation:** http://localhost:8089/swagger-ui.html
+   - **Health Check:** http://localhost:8089/actuator/health
+
+### Development Environment Setup
+
+#### IntelliJ IDEA
+1. Import project as Maven project
+2. Enable annotation processing for Lombok
+3. Set Project SDK to Java 17+
+4. Install Lombok plugin
+
+#### VS Code
+1. Install Java Extension Pack
+2. Install Spring Boot Extension Pack
+3. Configure Java SDK path
+4. Enable auto-import for Maven dependencies
+
+#### Eclipse
+1. Import as Maven project
+2. Install Lombok (download lombok.jar and run installer)
+3. Set compiler compliance level to 17
+4. Enable project facets for Spring
+
+## 📊 Database Schema Details
+
+### Tables Overview
+```sql
+-- Core Tables
+parking_lots           # Parking facility information
+parking_floors         # Floor-wise organization
+parking_spots         # Individual parking spots
+vehicles              # Vehicle master data
+parking_tickets      # Parking session records
+payments            # Payment transaction records
+
+-- Key Indexes
+idx_spot_status_type       # Fast spot availability queries
+idx_ticket_license_plate   # Quick vehicle lookup
+idx_ticket_entry_time     # Time-based analytics
+idx_payment_status        # Payment reporting
 ```
 
-### Database Configuration
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/autoparkiq_db
-spring.datasource.username=root
-spring.datasource.password=your_password
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-```
+### Sample Data Included
+- **1 Parking Lot** with 3 floors
+- **150 Parking Spots** (50 per floor)
+- **Mixed Spot Types**: Motorcycle (30%), Car (60%), Large (10%)
+- **Sample Vehicles** for testing
+- **Demo Parking Sessions** with payment records
 
 ## 🧪 Testing Strategy
 
 ### Unit Tests
-- Service layer business logic
-- Repository layer data access
-- Utility classes and algorithms
+```bash
+# Run specific test class
+./mvnw test -Dtest=VehicleServiceTest
+
+# Run all tests with coverage
+./mvnw test jacoco:report
+```
 
 ### Integration Tests
-- REST API endpoints
-- Database operations
-- End-to-end parking scenarios
+```bash
+# Test with embedded database
+./mvnw test -Dspring.profiles.active=test
 
-### Performance Tests
-- Concurrent vehicle entry/exit
-- Spot allocation under load
-- Database query optimization
+# Test specific functionality
+./mvnw test -Dtest=ParkingControllerIntegrationTest
+```
 
-## 📋 Implementation Plan
+### API Testing with Postman
+Import the provided Postman collection for comprehensive API testing:
+- Vehicle entry/exit scenarios
+- Payment processing workflows
+- Error handling validation
+- Concurrent operation testing
 
-### Phase 1: Core Infrastructure
-1. ✅ Project setup and configuration
-2. 🔄 Domain model and entities
-3. 🔄 Database schema and repositories
-4. 🔄 Basic service layer
+## 📈 Performance & Monitoring
 
-### Phase 2: Business Logic
-5. 🔄 Spot allocation algorithms
-6. 🔄 Fee calculation logic
-7. 🔄 Parking operations service
-8. 🔄 Concurrency handling
-
-### Phase 3: API Development
-9. 🔄 REST controllers
-10. 🔄 Error handling and validation
-11. 🔄 API documentation
-12. 🔄 Integration tests
-
-### Phase 4: Advanced Features
-13. ⏳ Real-time updates
-14. ⏳ Reporting and analytics
-15. ⏳ Performance optimization
-16. ⏳ Security implementation
-
-## 🔒 Concurrency Handling
-
-### Strategies Implemented
-- **Optimistic Locking**: JPA version-based locking for entities
-- **Database Transactions**: ACID compliance for parking operations
-- **Synchronized Methods**: Critical section protection for spot allocation
-- **AtomicOperations**: Thread-safe counters and status updates
-
-### Race Condition Prevention
-- Spot allocation atomicity
-- Payment processing integrity
-- Real-time availability consistency
-
-## 📈 Performance Considerations
+### Application Metrics
+- **Actuator Endpoints:** `/actuator/health`, `/actuator/metrics`
+- **Prometheus Integration:** Metrics export for monitoring
+- **Custom Metrics:** Parking utilization, average stay duration
+- **Performance Monitoring:** Database connection pool metrics
 
 ### Database Optimization
-- Proper indexing on frequently queried columns
-- Connection pooling for concurrent access
-- Query optimization for spot searches
+- **Connection Pooling:** HikariCP with optimized settings
+- **Query Optimization:** Indexed queries for spot allocation
+- **Pessimistic Locking:** Prevents race conditions
+- **Batch Operations:** Efficient bulk data processing
 
-### Caching Strategy
-- Redis for real-time availability (future)
-- Application-level caching for configuration data
-- Database query result caching
-
-### Scalability
-- Stateless service design
-- Horizontal scaling capability
-- Load balancing support
-
-## 🚦 Future Enhancements
-
-### Short Term
-- [ ] Mobile app integration APIs
-- [ ] Payment gateway integration
-- [ ] Email/SMS notifications
-- [ ] Advanced reporting dashboard
-
-### Long Term
-- [ ] AI-based predictive parking
-- [ ] IoT sensor integration
-- [ ] Multi-location support
-- [ ] Microservices architecture
-
-## 📚 Documentation
-
-### API Documentation
-- Swagger/OpenAPI 3.0 integration
-- Interactive API explorer
-- Request/response examples
-
-### Code Documentation
-- Comprehensive JavaDoc
-- Architecture decision records (ADRs)
-- Development guidelines
+### Health Checks
+The application provides comprehensive health checks:
+- Database connectivity
+- Disk space availability
+- Memory usage monitoring
+- Custom parking system health indicators
 
 ## 🤝 Contributing
 
 ### Development Workflow
-1. Fork the repository
-2. Create feature branch
-3. Implement changes with tests
-4. Submit pull request
-5. Code review and merge
+1. **Fork** the repository
+2. **Create** feature branch: `git checkout -b feature/new-feature`
+3. **Implement** changes with tests
+4. **Run** tests: `./mvnw test`
+5. **Commit** changes: `git commit -am 'Add new feature'`
+6. **Push** to branch: `git push origin feature/new-feature`
+7. **Submit** pull request
 
 ### Code Standards
-- Google Java Style Guide
-- 80% minimum test coverage
-- Comprehensive documentation
-- Security best practices
+- **Java Style Guide:** Google Java Style
+- **Documentation:** Comprehensive JavaDoc
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📧 Contact
+## 📧 Support & Contact
 
-For questions or support, please contact: [your-email@example.com]
+- **Issues:** [GitHub Issues](https://github.com/razorblack/AutoParkIQ/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/razorblack/AutoParkIQ/discussions)
 
 ---
 
